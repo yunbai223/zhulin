@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="竹林"/>
+<meta name="theme-color" content="#0f0f1a"/>
+<title>竹林</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB",sans-serif;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#2a2a45;border-radius:2px;}
+textarea,input,select{font-family:"Microsoft YaHei","PingFang SC",sans-serif;outline:none;}
+textarea{resize:none;}button{font-family:"Microsoft YaHei","PingFang SC",sans-serif;cursor:pointer;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.fade-in{animation:fadeIn .3s ease}
+.slide-up{animation:slideUp .38s cubic-bezier(.16,1,.3,1)}
+.dot{animation:pulse 1.3s ease-in-out infinite}
+</style>
+</head>
+<body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useEffect,useRef,useMemo}=React;
+const h=React.createElement;
+
+// ── THEMES ──────────────────────────────────────────────────────────
+const THEMES={
+  dark:{bg:"#0f0f1a",card:"#1a1a2e",cardHov:"#1f1f38",border:"#2a2a45",accent:"#7c5cbf",accentL:"#9b7dd4",text:"#e8e4d9",muted:"#7a7590",narr:"#c9a84c",green:"#4caf7d",danger:"#e05555",surf:"#13132a",b1:"#1c2640",b2:"#221c3e",ov:"rgba(0,0,0,.8)"},
+  light:{bg:"#faf7f2",card:"#ffffff",cardHov:"#f5f0ea",border:"#e0d8cc",accent:"#7c5cbf",accentL:"#9b7dd4",text:"#1a1a1a",muted:"#6b6577",narr:"#8b6914",green:"#2e7d52",danger:"#c0392b",surf:"#f0ebe3",b1:"#e8f0fb",b2:"#ede8fb",ov:"rgba(0,0,0,.5)"},
+  cyberpunk:{bg:"#0a0a12",card:"#0f1020",cardHov:"#141428",border:"#1e1e40",accent:"#00f5ff",accentL:"#40ffff",text:"#e0f0ff",muted:"#6080a0",narr:"#ff6ec7",green:"#00ff88",danger:"#ff4060",surf:"#080810",b1:"#0a1530",b2:"#150a30",ov:"rgba(0,0,0,.85)"},
+  parchment:{bg:"#f5ead0",card:"#fdf5e0",cardHov:"#faefd5",border:"#d4b896",accent:"#8b4513",accentL:"#a0522d",text:"#2c1810",muted:"#8b6355",narr:"#654321",green:"#2d5a27",danger:"#8b0000",surf:"#ede0c4",b1:"#e8d5b0",b2:"#ddc898",ov:"rgba(0,0,0,.5)"},
+};
+const SKINNAMES={dark:"暗黑沉浸",light:"清爽白昼",cyberpunk:"赛博朋克",parchment:"羊皮纸"};
+const CHARCOLORS=["#9b7dd4","#e0885a","#4caf7d","#5aa8e0","#e05a8a","#c9a84c","#5ac9c9","#a8e05a"];
+
+// ── LOCAL STORAGE ────────────────────────────────────────────────────
+const LS={
+  get:(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+};
+
+// ── ICONS ────────────────────────────────────────────────────────────
+function Ico({n,s=20,c="currentColor"}){
+  const p={stroke:c,strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",fill:"none"};
+  const st={width:s,height:s,display:"block",flexShrink:0};
+  const icons={
+    home:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('path',{d:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"}),h('polyline',{points:"9,22 9,12 15,12 15,22"})),
+    book:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('path',{d:"M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"}),h('path',{d:"M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"})),
+    user:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('path',{d:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"}),h('circle',{cx:12,cy:7,r:4})),
+    mask:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('circle',{cx:12,cy:12,r:10}),h('path',{d:"M8 14s1.5 2 4 2 4-2 4-2"}),h('line',{x1:9,y1:9,x2:9.01,y2:9}),h('line',{x1:15,y1:9,x2:15.01,y2:9})),
+    globe:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('circle',{cx:12,cy:12,r:10}),h('line',{x1:2,y1:12,x2:22,y2:12}),h('path',{d:"M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"})),
+    settings:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('circle',{cx:12,cy:12,r:3}),h('path',{d:"M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"})),
+    plus:h('svg',{style:st,viewBox:"0 0 24 24",stroke:c,strokeWidth:2,strokeLinecap:"round",fill:"none"},h('line',{x1:12,y1:5,x2:12,y2:19}),h('line',{x1:5,y1:12,x2:19,y2:12})),
+    send:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('line',{x1:22,y1:2,x2:11,y2:13}),h('polygon',{points:"22,2 15,22 11,13 2,9",fill:c,stroke:"none"})),
+    refresh:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('polyline',{points:"23,4 23,10 17,10"}),h('path',{d:"M20.49 15a9 9 0 11-2.12-9.36L23 10"})),
+    edit:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('path',{d:"M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"}),h('path',{d:"M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"})),
+    undo:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('polyline',{points:"9,14 4,9 9,4"}),h('path',{d:"M20 20v-7a4 4 0 00-4-4H4"})),
+    dice:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('rect',{x:2,y:2,width:20,height:20,rx:3}),h('circle',{cx:8,cy:8,r:1.5,fill:c}),h('circle',{cx:16,cy:8,r:1.5,fill:c}),h('circle',{cx:8,cy:16,r:1.5,fill:c}),h('circle',{cx:16,cy:16,r:1.5,fill:c}),h('circle',{cx:12,cy:12,r:1.5,fill:c})),
+    trash:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('polyline',{points:"3,6 5,6 21,6"}),h('path',{d:"M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"}),h('line',{x1:10,y1:11,x2:10,y2:17}),h('line',{x1:14,y1:11,x2:14,y2:17}),h('path',{d:"M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"})),
+    close:h('svg',{style:st,viewBox:"0 0 24 24",stroke:c,strokeWidth:2,strokeLinecap:"round",fill:"none"},h('line',{x1:18,y1:6,x2:6,y2:18}),h('line',{x1:6,y1:6,x2:18,y2:18})),
+    img:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('rect',{x:3,y:3,width:18,height:18,rx:2}),h('circle',{cx:8.5,cy:8.5,r:1.5}),h('polyline',{points:"21,15 16,10 5,21"})),
+    bolt:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('polygon',{points:"13,2 3,14 12,14 11,22 21,10 12,10",fill:c,stroke:"none"})),
+    back:h('svg',{style:st,viewBox:"0 0 24 24",stroke:c,strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round",fill:"none"},h('polyline',{points:"15,18 9,12 15,6"})),
+    bookmark:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('path',{d:"M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"})),
+    search:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('circle',{cx:11,cy:11,r:8}),h('line',{x1:21,y1:21,x2:16.65,y2:16.65})),
+    down:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('path',{d:"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"}),h('polyline',{points:"7,10 12,15 17,10"}),h('line',{x1:12,y1:15,x2:12,y2:3})),
+    up:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('path',{d:"M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"}),h('polyline',{points:"17,8 12,3 7,8"}),h('line',{x1:12,y1:3,x2:12,y2:15})),
+    map:h('svg',{style:st,viewBox:"0 0 24 24",...p},h('polygon',{points:"1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2"}),h('line',{x1:8,y1:2,x2:8,y2:18}),h('line',{x1:16,y1:6,x2:16,y2:22})),
+    star:h('svg',{style:st,viewBox:"0 0 24 24"},h('polygon',{points:"12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26",fill:c,stroke:"none"})),
+  };
+  return icons[n]||null;
+}
+
+function ZhuLogo({size=40}){
+  return h('svg',{width:size,height:size,viewBox:"0 0 100 100",fill:"none"},
+    h('rect',{width:100,height:100,rx:22,fill:"#0f0f1a"}),
+    h('g',{stroke:"#4caf7d",strokeWidth:5,strokeLinecap:"round"},
+      h('line',{x1:32,y1:80,x2:32,y2:20}),h('line',{x1:32,y1:35,x2:20,y2:25}),
+      h('line',{x1:32,y1:50,x2:44,y2:40}),h('line',{x1:32,y1:62,x2:20,y2:52}),
+      h('line',{x1:58,y1:80,x2:58,y2:28}),h('line',{x1:58,y1:42,x2:46,y2:32}),
+      h('line',{x1:58,y1:56,x2:70,y2:46}),h('line',{x1:58,y1:68,x2:46,y2:58}),
+      h('line',{x1:26,y1:20,x2:38,y2:20}),h('line',{x1:52,y1:28,x2:64,y2:28})
+    )
+  );
+}
+
+// ── INIT DATA ────────────────────────────────────────────────────────
+const D0_CHARS=[
+  {id:1,name:"云烟",avatar:null,setting:"神秘剑客，来自北方雪山，性格冷峻但内心柔软。独门剑法「霜雪诀」威震江湖。",pronoun:"她",pov:"第三人称",color:"#9b7dd4",relations:[]},
+  {id:2,name:"王福",avatar:null,setting:"老狡猾的酒馆掌柜，消息灵通，两面三刀。",pronoun:"他",pov:"第三人称",color:"#e0885a",relations:[]},
+];
+const D0_VESTS=[{id:1,name:"旅人",avatar:null,setting:"四处漂泊的旅人，好奇心旺盛，喜欢冒险。",pronoun:"我",pov:"第一人称"}];
+const D0_WORLDS=[
+  {id:1,name:"仙侠世界",prompt:"修仙世界，灵气充沛，门派林立。人们可以修炼成仙，掌控各种法术。",tags:["奇幻","古代"]},
+  {id:2,name:"现代都市",prompt:"现代都市，科技发达，暗处隐藏神秘势力和秘密组织。",tags:["现代","悬疑"]},
+];
+const D0_STORIES=[
+  {id:1,title:"竹林深处",genre:"古代奇幻",lastPlayed:"今天",turns:12,msgs:[
+    {id:1,type:"narr",content:"夜色如墨，竹林深处，风声沙沙作响。月光透过竹叶的缝隙洒落，在地面上留下斑驳的光影。"},
+    {id:2,type:"char",char:"云烟",color:"#9b7dd4",content:"「此处风声不对，有人跟踪。」"},
+    {id:3,type:"player",name:"旅人",content:"「你确定吗？我什么都没感觉到。」"},
+    {id:4,type:"narr",content:"话音未落，竹林中突然传来一声轻响，一道黑影从树梢掠过，消失在夜色之中。"},
+  ],bookmarks:[],favs:[]},
+  {id:2,title:"都市迷踪",genre:"现代悬疑",lastPlayed:"昨天",turns:5,msgs:[],bookmarks:[],favs:[]},
+];
+
+// ── APP ──────────────────────────────────────────────────────────────
+function App(){
+  const [skin,setSkin]=useState(()=>LS.get("skin","dark"));
+  const t=THEMES[skin]||THEMES.dark;
+
+  const [page,setPage]=useState("home");
+  const [stories,setStories]=useState(()=>LS.get("stories",D0_STORIES));
+  const [chars,setChars]=useState(()=>LS.get("chars",D0_CHARS));
+  const [vests,setVests]=useState(()=>LS.get("vests",D0_VESTS));
+  const [worlds,setWorlds]=useState(()=>LS.get("worlds",D0_WORLDS));
+
+  // API settings
+  const [apiBase,setApiBase]=useState(()=>LS.get("apiBase","https://api.anthropic.com"));
+  const [apiKey,setApiKey]=useState(()=>LS.get("apiKey",""));
+  const [apiModel,setApiModel]=useState(()=>LS.get("apiModel","claude-sonnet-4-20250514"));
+  const [apiTemp,setApiTemp]=useState(()=>LS.get("apiTemp",0.8));
+  const [apiTokens,setApiTokens]=useState(()=>LS.get("apiTokens",1200));
+
+  // reading settings
+  const [fontSize,setFontSize]=useState(()=>LS.get("fontSize",14));
+  const [fontFace,setFontFace]=useState(()=>LS.get("fontFace","serif"));
+  const [typewriter,setTypewriter]=useState(()=>LS.get("typewriter",true));
+  const [dispMode,setDispMode]=useState(()=>LS.get("dispMode","novel"));
+  const [bgImg,setBgImg]=useState(()=>LS.get("bgImg",""));
+
+  // story state
+  const [activeId,setActiveId]=useState(null);
+  const [selVestId,setSelVestId]=useState(()=>LS.get("selVestId",1));
+  const [selWorldIds,setSelWorldIds]=useState(()=>LS.get("selWorldIds",[1]));
+  const [selCharIds,setSelCharIds]=useState(()=>LS.get("selCharIds",[1]));
+  const [branches,setBranches]=useState(null);
+  const [generating,setGenerating]=useState(false);
+  // input state 移到 StoryPage 内部
+  const [scene,setScene]=useState("");
+  const [showSearch,setShowSearch]=useState(false);
+  const [searchQ,setSearchQ]=useState("");
+  const [showBM,setShowBM]=useState(false);
+
+  // modal
+  const [modal,setModal]=useState(null);
+  const [editItem,setEditItem]=useState(null);
+  const [relModal,setRelModal]=useState(null);
+  const [storyPin,setStoryPin]=useState({});   // {storyId: "pin码"}
+  const [lockedStories,setLockedStories]=useState({});  // {storyId: true/false已解锁}
+  const [fetchingModels,setFetchingModels]=useState(false);
+  const [modelList,setModelList]=useState([]);
+
+  const chatRef=useRef(null);
+
+  const activeStory=stories.find(s=>s.id===activeId)||null;
+  const selVest=vests.find(v=>v.id===selVestId)||vests[0];
+  const selWorlds=worlds.filter(w=>selWorldIds.includes(w.id));
+  const selChars=chars.filter(c=>selCharIds.includes(c.id));
+
+  // persist
+  useEffect(()=>LS.set("skin",skin),[skin]);
+  useEffect(()=>LS.set("stories",stories),[stories]);
+  useEffect(()=>LS.set("chars",chars),[chars]);
+  useEffect(()=>LS.set("vests",vests),[vests]);
+  useEffect(()=>LS.set("worlds",worlds),[worlds]);
+  useEffect(()=>LS.set("apiBase",apiBase),[apiBase]);
+  useEffect(()=>LS.set("apiKey",apiKey),[apiKey]);
+  useEffect(()=>LS.set("apiModel",apiModel),[apiModel]);
+  useEffect(()=>LS.set("apiTemp",apiTemp),[apiTemp]);
+  useEffect(()=>LS.set("apiTokens",apiTokens),[apiTokens]);
+  useEffect(()=>LS.set("fontSize",fontSize),[fontSize]);
+  useEffect(()=>LS.set("fontFace",fontFace),[fontFace]);
+  useEffect(()=>LS.set("typewriter",typewriter),[typewriter]);
+  useEffect(()=>LS.set("dispMode",dispMode),[dispMode]);
+  useEffect(()=>LS.set("bgImg",bgImg),[bgImg]);
+  useEffect(()=>LS.set("selVestId",selVestId),[selVestId]);
+  useEffect(()=>LS.set("selWorldIds",selWorldIds),[selWorldIds]);
+  useEffect(()=>LS.set("selCharIds",selCharIds),[selCharIds]);
+
+  useEffect(()=>{
+    if(chatRef.current) chatRef.current.scrollTop=chatRef.current.scrollHeight;
+  },[activeStory?.msgs,generating,branches]);
+
+  // story helpers
+  const updMsgs=(id,fn)=>setStories(p=>p.map(s=>s.id===id?{...s,msgs:fn(s.msgs||[])}:s));
+  const updStory=(id,fn)=>setStories(p=>p.map(s=>s.id===id?fn(s):s));
+
+  // generate
+  const generate=async(userInput,isRand=false)=>{
+    if(!apiKey){alert("请先在设置中填写 API Key");return;}
+    if(!activeId){alert("请先选择一个故事");return;}
+    setGenerating(true);setBranches(null);
+    const wp=selWorlds.map(w=>w.prompt).join("\n");
+    const cp=selChars.map(c=>`角色${c.name}（${c.pronoun}/${c.pov}）：${c.setting}`).join("\n");
+    const vp=selVest?`玩家马甲「${selVest.name}」（${selVest.pronoun}/${selVest.pov}）：${selVest.setting}`:"";
+    const sp=scene?`当前场景：${scene}`:"";
+    const st=stories.find(s=>s.id===activeId);
+    const hist=(st?.msgs||[]).slice(-10).map(m=>m.type==="player"?`玩家：${m.content}`:m.content).join("\n");
+    // 角色单独记忆
+    const charMemories=selChars.map(c=>{
+      const memKey="mem_"+activeId+"_"+c.id;
+      const mem=LS.get(memKey,"");
+      return mem?`${c.name}的记忆摘要：${mem}`:"";
+    }).filter(Boolean).join("\n");
+    // 隐藏剧情触发词
+    const st2=stories.find(s=>s.id===activeId);
+    const triggers=(st2?.triggers||[]);
+    const triggerPrompt=triggers.length>0?`隐藏剧情触发词（当对话包含以下词语时触发对应隐藏剧情）：${triggers.map(t=>t.keyword+"→"+t.event).join("；")}`:"";
+    // 检查当前输入是否触发隐藏剧情
+    const matchedTrigger=triggers.find(t=>userInput&&userInput.includes(t.keyword));
+    const triggerInject=matchedTrigger?`\n【隐藏剧情触发】玩家触发了关键词「${matchedTrigger.keyword}」，请发生以下隐藏事件：${matchedTrigger.event}`:"";
+    const sys=`你是顶级沉浸式互动小说AI，用中文生成精彩剧情。
+世界观：${wp}
+${cp}
+${vp}
+${sp}
+规则：旁白描述环境动作，对话用「」引号。结尾严格按格式：【分支A】内容【分支B】内容【分支C】内容
+${charMemories}
+${triggerPrompt}`;
+    try{
+      const base=apiBase.replace(/\/+$/,"");
+      const res=await fetch(base+"/v1/messages",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:apiModel,max_tokens:apiTokens,temperature:apiTemp,system:sys,
+          messages:[{role:"user",content:hist+(userInput?"\n玩家："+userInput+triggerInject:isRand?"\n发生随机意外事件":"\n请继续推进剧情")}]})
+      });
+      const data=await res.json();
+      if(data.error){throw new Error(data.error.message||"API错误");}
+      const raw=data.content?.[0]?.text||"";
+      const bm=raw.match(/【分支A】([\s\S]+?)【分支B】([\s\S]+?)【分支C】([\s\S]+)/);
+      const main=bm?raw.replace(/【分支A】[\s\S]*/,"").trim():raw;
+      const nb=bm?[bm[1].trim(),bm[2].trim(),bm[3].trim()]:null;
+      const parts=main.split(/(「[^」]*」)/g).filter(s=>s.trim());
+      const newMsgs=[];
+      let ci=0;
+      for(const part of parts){
+        if(part.startsWith("「")){
+          const c=selChars[ci%Math.max(selChars.length,1)];
+          newMsgs.push({id:Date.now()+Math.random(),type:"char",char:c?.name||"角色",color:c?.color||"#9b7dd4",content:part.trim()});
+          ci++;
+        }else if(part.trim()){
+          newMsgs.push({id:Date.now()+Math.random(),type:"narr",content:part.trim()});
+        }
+      }
+      if(!newMsgs.length) newMsgs.push({id:Date.now(),type:"narr",content:main});
+      updMsgs(activeId,prev=>[...prev,...newMsgs]);
+      updStory(activeId,s=>({...s,turns:(s.turns||0)+1,lastPlayed:"刚刚"}));
+      // 更新角色记忆（保存最近5条剧情摘要）
+      selChars.forEach(c=>{
+        const memKey="mem_"+activeId+"_"+c.id;
+        const oldMem=LS.get(memKey,"");
+        const newSnippet=main.slice(0,120);
+        const updated=(oldMem+"\n"+newSnippet).split("\n").slice(-8).join("\n");
+        LS.set(memKey,updated);
+      });
+      if(nb) setBranches(nb);
+    }catch(err){
+      updMsgs(activeId,prev=>[...prev,{id:Date.now(),type:"narr",content:"【错误："+err.message+"】"}]);
+    }
+    setGenerating(false);
+  };
+
+  // handleSend 移到 StoryPage 内部
+  const handleBranch=b=>{
+    updMsgs(activeId,prev=>[...prev,{id:Date.now(),type:"player",name:selVest?.name||"我",content:"选择："+b}]);
+    generate(b);
+  };
+  const handleUndo=()=>{
+    updMsgs(activeId,prev=>{
+      const a=[...prev];
+      while(a.length&&a[a.length-1].type!=="player")a.pop();
+      if(a.length)a.pop();return a;
+    });
+    setBranches(null);
+  };
+  const addBookmark=()=>{
+    if(!activeStory)return;
+    const bm={id:Date.now(),label:"存档 "+new Date().toLocaleString("zh"),msgs:[...activeStory.msgs]};
+    updStory(activeId,s=>({...s,bookmarks:[...(s.bookmarks||[]),bm]}));
+    alert("已存档！");
+  };
+  const exportTxt=()=>{
+    if(!activeStory)return;
+    const txt=(activeStory.msgs||[]).map(m=>
+      m.type==="narr"?m.content:m.type==="char"?m.char+"："+m.content:"【"+m.name+"】"+m.content
+    ).join("\n\n");
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain;charset=utf-8"}));
+    a.download=(activeStory.title||"故事")+".txt";a.click();
+  };
+  const exportJSON=()=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([JSON.stringify({chars,vests,worlds,stories},null,2)],{type:"application/json"}));
+    a.download="竹林备份.json";a.click();
+  };
+
+  // fetch models
+  const fetchModels=async()=>{
+    if(!apiKey){alert("请先填写API Key");return;}
+    setFetchingModels(true);
+    try{
+      const base=apiBase.replace(/\/+$/,"");
+      const res=await fetch(base+"/v1/models",{headers:{"x-api-key":apiKey,"anthropic-version":"2023-06-01"}});
+      const data=await res.json();
+      const list=(data.data||[]).map(m=>m.id).filter(Boolean);
+      if(list.length>0){setModelList(list);alert("已拉取 "+list.length+" 个模型");}
+      else{alert("未拉取到模型，请检查API地址和Key");}
+    }catch(err){alert("拉取失败："+err.message);}
+    setFetchingModels(false);
+  };
+
+  // modal helpers
+  const openModal=(type,item=null)=>{
+    setModal(type);
+    setEditItem(item?{...item}:{name:"",avatar:null,setting:"",pronoun:"他",pov:"第三人称",prompt:"",tags:[],genre:"",title:"",color:CHARCOLORS[chars.length%CHARCOLORS.length],relations:[]});
+  };
+  const closeModal=()=>{setModal(null);setEditItem(null);};
+
+  const fileToB64=(file,cb)=>{const r=new FileReader();r.onload=e=>cb(e.target.result);r.readAsDataURL(file);};
+
+  // search
+  const searchResults=useMemo(()=>{
+    if(!searchQ.trim()||!activeStory)return[];
+    const q=searchQ.toLowerCase();
+    return(activeStory.msgs||[]).filter(m=>m.content?.toLowerCase().includes(q));
+  },[searchQ,activeStory]);
+
+  // ── SMALL COMPONENTS ──────────────────────────────────────────────
+  const fontStack=fontFace==="serif"?'"Songti SC","SimSun","STSong",serif':fontFace==="handwriting"?'"Kaiti SC","KaiTi",cursive':'"Microsoft YaHei","PingFang SC",sans-serif';
+
+  function Ava({src,name,size=36,color}){
+    const col=color||t.accent;
+    return h('div',{style:{width:size,height:size,borderRadius:"50%",overflow:"hidden",flexShrink:0,
+      background:src?"transparent":col,display:"flex",alignItems:"center",justifyContent:"center",
+      fontSize:size*.42,color:"#fff",fontWeight:700,border:"2px solid "+col+"55"}},
+      src?h('img',{src,style:{width:"100%",height:"100%",objectFit:"cover"}}):name?.[0]||"?"
+    );
+  }
+
+  function Btn({children,onClick,v="pri",sz="md",style:st={}}){
+    const vs={pri:{background:t.accent,color:"#fff",border:"none"},
+      ghost:{background:"transparent",color:t.muted,border:"1px solid "+t.border},
+      danger:{background:t.danger+"18",color:t.danger,border:"1px solid "+t.danger+"40"},
+      ok:{background:t.green+"18",color:t.green,border:"1px solid "+t.green+"40"}};
+    const ss={sm:{padding:"5px 11px",fontSize:11},md:{padding:"9px 16px",fontSize:13},lg:{padding:"12px 22px",fontSize:15}};
+    return h('button',{onClick,style:{borderRadius:9,cursor:"pointer",fontWeight:500,fontFamily:"inherit",transition:"all .2s",...vs[v],...ss[sz],...st}},children);
+  }
+
+  function Card({children,onClick,border,style:st={}}){
+    const [hov,setHov]=useState(false);
+    return h('div',{onClick,onMouseEnter:()=>setHov(true),onMouseLeave:()=>setHov(false),
+      style:{background:hov&&onClick?t.cardHov:t.card,border:"1px solid "+(border||t.border),
+        borderRadius:14,padding:16,cursor:onClick?"pointer":"default",transition:"all .2s",...st}},children);
+  }
+
+  function Fld({label,value,onChange,placeholder,type="text",rows}){
+    return h('div',{style:{marginBottom:13}},
+      label&&h('div',{style:{fontSize:11,color:t.muted,marginBottom:5}},label),
+      rows?h('textarea',{value,onChange:e=>onChange(e.target.value),placeholder,rows,
+        style:{width:"100%",background:t.surf,border:"1px solid "+t.border,borderRadius:9,padding:"9px 11px",color:t.text,fontSize:13,lineHeight:1.7}}):
+      h('input',{type,value,onChange:e=>onChange(e.target.value),placeholder,
+        style:{width:"100%",background:t.surf,border:"1px solid "+t.border,borderRadius:9,padding:"9px 11px",color:t.text,fontSize:13}})
+    );
+  }
+
+  function Sel({label,value,onChange,options}){
+    return h('div',{style:{marginBottom:13}},
+      label&&h('div',{style:{fontSize:11,color:t.muted,marginBottom:5}},label),
+      h('select',{value,onChange:e=>onChange(e.target.value),
+        style:{width:"100%",background:t.surf,border:"1px solid "+t.border,borderRadius:9,padding:"9px 11px",color:t.text,fontSize:13,cursor:"pointer"}},
+        options.map(o=>h('option',{key:o.v,value:o.v},o.l)))
+    );
+  }
+
+  function Toggle({label,value,onChange}){
+    return h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid "+t.border+"55"}},
+      h('span',{style:{fontSize:13,color:t.text}},label),
+      h('button',{onClick:()=>onChange(!value),style:{width:44,height:24,borderRadius:12,background:value?t.accent:t.border,border:"none",position:"relative",cursor:"pointer",transition:"background .2s"}},
+        h('div',{style:{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:value?23:3,transition:"left .2s",boxShadow:"0 1px 4px rgba(0,0,0,.3)"}})
+      )
+    );
+  }
+
+  function Slider({label,value,onChange,min,max,step=1}){
+    return h('div',{style:{marginBottom:14}},
+      h('div',{style:{display:"flex",justifyContent:"space-between",marginBottom:6}},
+        h('span',{style:{fontSize:11,color:t.muted}},label),
+        h('span',{style:{fontSize:11,color:t.accent,fontWeight:600}},value)
+      ),
+      h('input',{type:"range",min,max,step,value,onChange:e=>onChange(Number(e.target.value)),
+        style:{width:"100%",accentColor:t.accent,cursor:"pointer"}})
+    );
+  }
+
+  // File upload button
+  function FileBtn({accept,onChange,label,icon}){
+    const ref=useRef();
+    return h('div',{style:{display:"inline-block"}},
+      h('input',{ref,type:"file",accept,onChange,style:{display:"none"}}),
+      h('button',{onClick:()=>ref.current.click(),
+        style:{padding:"6px 13px",borderRadius:9,border:"1px solid "+t.border,background:"transparent",
+          color:t.muted,fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontFamily:"inherit"}},
+        icon&&h(Ico,{n:icon,s:13,c:t.muted}),label)
+    );
+  }
+
+  function ModalWrap({title,onSave,children}){
+    return h('div',{style:{position:"fixed",inset:0,background:t.ov,zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"},onClick:closeModal},
+      h('div',{onClick:e=>e.stopPropagation(),className:"slide-up",
+        style:{background:t.card,borderRadius:"20px 20px 0 0",padding:22,width:"100%",maxHeight:"88vh",overflowY:"auto",border:"1px solid "+t.border,borderBottom:"none"}},
+        h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}},
+          h('span',{style:{fontSize:16,fontWeight:700,color:t.text}},title),
+          h('button',{onClick:closeModal,style:{background:"none",border:"none",cursor:"pointer"}},h(Ico,{n:"close",s:20,c:t.muted}))
+        ),
+        children,
+        h('div',{style:{display:"flex",gap:9,marginTop:18}},
+          h(Btn,{onClick:closeModal,v:"ghost",style:{flex:1}},"取消"),
+          h(Btn,{onClick:onSave,style:{flex:1}},"保存")
+        )
+      )
+    );
+  }
+
+  function AvaUpload(){
+    const ref=useRef();
+    return h('div',{style:{marginBottom:14}},
+      h('div',{style:{fontSize:11,color:t.muted,marginBottom:7}},"头像"),
+      h('div',{style:{display:"flex",alignItems:"center",gap:12}},
+        h('div',{style:{width:58,height:58,borderRadius:"50%",overflow:"hidden",
+          background:editItem?.avatar?"transparent":t.surf,border:"2px dashed "+t.border,
+          display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"},
+          onClick:()=>ref.current.click()},
+          editItem?.avatar?h('img',{src:editItem.avatar,style:{width:"100%",height:"100%",objectFit:"cover"}}):h(Ico,{n:"img",s:20,c:t.muted})
+        ),
+        h('input',{ref,type:"file",accept:"image/*",style:{display:"none"},
+          onChange:e=>{const f=e.target.files[0];if(f)fileToB64(f,url=>setEditItem(p=>({...p,avatar:url})));}}),
+        h('button',{onClick:()=>ref.current.click(),
+          style:{padding:"6px 13px",borderRadius:9,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}},
+          "从相册上传"),
+        editItem?.avatar&&h('button',{onClick:()=>setEditItem(p=>({...p,avatar:null})),
+          style:{padding:"6px 10px",borderRadius:9,border:"1px solid "+t.danger+"40",background:t.danger+"18",color:t.danger,fontSize:11,cursor:"pointer",fontFamily:"inherit"}},
+          "删除")
+      )
+    );
+  }
+
+  // ── MESSAGE ───────────────────────────────────────────────────────
+  function Msg({msg,isFav,onFav}){
+    const [show,setShow]=useState(false);
+    const ff=fontStack;
+    const fs=fontSize;
+    if(dispMode==="script"){
+      return h('div',{style:{padding:"2px 0",fontSize:fs,fontFamily:ff,lineHeight:1.8,color:t.text},onClick:()=>setShow(p=>!p)},
+        msg.type==="narr"&&h('span',{style:{color:t.narr,fontStyle:"italic"}},msg.content),
+        msg.type==="char"&&h('span',null,h('span',{style:{color:msg.color||t.accent,fontWeight:600}},msg.char+"："),msg.content),
+        msg.type==="player"&&h('span',null,h('span',{style:{color:t.green,fontWeight:600}},msg.name+"："),msg.content),
+        show&&h('button',{onClick:e=>{e.stopPropagation();onFav();},
+          style:{marginLeft:8,background:"none",border:"none",cursor:"pointer",fontSize:12,color:isFav?t.narr:t.muted}},
+          isFav?"★ 已收藏":"☆ 收藏")
+      );
+    }
+    if(dispMode==="bubble"){
+      if(msg.type==="narr") return h('div',{style:{textAlign:"center",padding:"2px 18px",fontSize:fs-1,fontFamily:ff,color:t.narr,fontStyle:"italic",lineHeight:1.9}},msg.content);
+      const isP=msg.type==="player";
+      return h('div',{style:{display:"flex",gap:9,alignItems:"flex-start",justifyContent:isP?"flex-end":"flex-start"},onClick:()=>setShow(p=>!p)},
+        !isP&&h(Ava,{name:msg.char,size:32,color:msg.color||t.accent}),
+        h('div',null,
+          h('div',{style:{fontSize:10,color:t.muted,marginBottom:3,textAlign:isP?"right":"left"}},isP?msg.name:msg.char),
+          h('div',{style:{background:isP?t.b2:t.b1,borderRadius:isP?"14px 4px 14px 14px":"4px 14px 14px 14px",
+            padding:"9px 13px",maxWidth:250,fontSize:fs,fontFamily:ff,color:t.text,lineHeight:1.8,position:"relative"}},
+            msg.content,
+            show&&h('button',{onClick:e=>{e.stopPropagation();onFav();},
+              style:{position:"absolute",top:-26,right:0,background:t.card,border:"1px solid "+t.border,
+                borderRadius:8,padding:"3px 9px",fontSize:10,color:isFav?t.narr:t.muted,cursor:"pointer",whiteSpace:"nowrap"}},
+              isFav?"★ 已收藏":"☆ 收藏")
+          )
+        ),
+        isP&&h(Ava,{name:msg.name,size:32,color:t.green})
+      );
+    }
+    // novel
+    return h('div',{onClick:()=>setShow(p=>!p)},
+      msg.type==="narr"&&h('div',{style:{textAlign:"center",padding:"0 12px",fontSize:fs,fontFamily:ff,color:t.narr,fontStyle:"italic",lineHeight:2}},
+        msg.content,show&&h('button',{onClick:e=>{e.stopPropagation();onFav();},
+          style:{marginLeft:8,background:"none",border:"none",cursor:"pointer",fontSize:12,color:isFav?t.narr:t.muted}},isFav?"★":"☆")),
+      msg.type==="char"&&h('div',{style:{fontSize:fs,fontFamily:ff,lineHeight:1.9,color:t.text,padding:"0 2px"}},
+        h('span',{style:{color:msg.color||t.accent,fontWeight:600}},msg.char+"  "),msg.content),
+      msg.type==="player"&&h('div',{style:{fontSize:fs,fontFamily:ff,lineHeight:1.9,color:t.green,fontStyle:"italic",padding:"0 2px"}},
+        h('span',{style:{fontWeight:600}},"【"+msg.name+"】 "),msg.content)
+    );
+  }
+
+  // ── HOME PAGE ─────────────────────────────────────────────────────
+  function HomePage(){
+    return h('div',{style:{padding:16}},
+      h('div',{style:{display:"flex",alignItems:"center",gap:12,marginBottom:22}},
+        h(ZhuLogo,{size:38}),
+        h('div',null,
+          h('div',{style:{fontSize:21,fontWeight:700,color:t.text,letterSpacing:2}},"竹林"),
+          h('div',{style:{fontSize:11,color:t.muted}},"沉浸式AI小说")
+        ),
+        h('div',{style:{marginLeft:"auto"}},
+          h(Btn,{onClick:()=>openModal("story"),sz:"sm"},
+            h('span',{style:{display:"flex",alignItems:"center",gap:4}},h(Ico,{n:"plus",s:13,c:"#fff"}),"新故事"))
+        )
+      ),
+      h('div',{style:{padding:13,background:t.surf,borderRadius:13,border:"1px solid "+t.border,marginBottom:18}},
+        h('div',{style:{fontSize:11,color:t.muted,marginBottom:8}},"当前配置"),
+        h('div',{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          h('span',{style:{fontSize:11,padding:"3px 10px",borderRadius:20,background:t.accent+"22",color:t.accent}},"🪪 "+(selVest?.name||"未选")),
+          selWorlds.map(w=>h('span',{key:w.id,style:{fontSize:11,padding:"3px 10px",borderRadius:20,background:t.green+"22",color:t.green}},"📚 "+w.name)),
+          selChars.map(c=>h('span',{key:c.id,style:{fontSize:11,padding:"3px 10px",borderRadius:20,background:(c.color||t.accent)+"22",color:c.color||t.accent}},"👤 "+c.name))
+        )
+      ),
+      h('div',{style:{fontSize:12,color:t.muted,marginBottom:10,fontWeight:600}},"我的故事"),
+      h('div',{style:{display:"flex",flexDirection:"column",gap:10}},
+        stories.map(s=>h(Card,{key:s.id,onClick:()=>{setActiveId(s.id);setPage("story");}},
+          h('div',{style:{display:"flex",gap:13,alignItems:"center"}},
+            h('div',{style:{width:48,height:64,borderRadius:9,background:"linear-gradient(135deg,"+t.accent+"70,"+t.green+"50)",
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}},"📖"),
+            h('div',{style:{flex:1}},
+              h('div',{style:{fontSize:15,fontWeight:600,color:t.text,marginBottom:4}},s.title),
+              h('div',{style:{fontSize:11,color:t.accent,marginBottom:5}},s.genre),
+              h('div',{style:{display:"flex",gap:10,fontSize:11,color:t.muted}},
+                h('span',null,s.lastPlayed),h('span',null,s.turns+" 回合"),
+                (s.bookmarks||[]).length>0&&h('span',null,"🔖"+(s.bookmarks||[]).length))
+            ),
+            h('div',{style:{display:"flex",gap:4}},
+              h('button',{onClick:e=>{e.stopPropagation();
+                const pin=storyPin[s.id];
+                if(pin){const p=prompt("解锁密码");if(p===pin){setLockedStories(prev=>({...prev,[s.id]:false}));alert("已解锁");}}
+                else{const p=prompt("设置加密密码（留空取消）");if(p){setStoryPin(prev=>({...prev,[s.id]:p}));alert("已加密！");}}
+              },style:{background:"none",border:"none",cursor:"pointer",padding:4,fontSize:14}},
+                storyPin[s.id]?"🔒":"🔓"),
+              h('button',{onClick:e=>{e.stopPropagation();if(confirm("确认删除「"+s.title+"」？"))setStories(p=>p.filter(x=>x.id!==s.id));},
+                style:{background:"none",border:"none",cursor:"pointer",padding:6}},
+                h(Ico,{n:"trash",s:15,c:t.danger}))
+            )
+          )
+        ))
+      )
+    );
+  }
+
+  // ── STORY PAGE ────────────────────────────────────────────────────
+  function StoryPage(){
+    const [input,setInput]=useState("");
+    const handleSend=()=>{
+      if(!input.trim()||generating)return;
+      const txt=input.trim();
+      updMsgs(activeId,prev=>[...prev,{id:Date.now(),type:"player",name:selVest?.name||"我",content:txt}]);
+      generate(txt);setInput("");
+    };
+    const st=stories.find(s=>s.id===activeId);
+    const msgs=st?.msgs||[];
+    const [editMsgId,setEditMsgId]=useState(null);
+    const [editTxt,setEditTxt]=useState("");
+
+    return h('div',{style:{display:"flex",flexDirection:"column",height:"100%",
+      backgroundImage:bgImg?"url("+bgImg+")":"none",backgroundSize:"cover",backgroundPosition:"center"}},
+      // header
+      h('div',{style:{padding:"11px 14px",borderBottom:"1px solid "+t.border,display:"flex",alignItems:"center",gap:9,
+        background:bgImg?"rgba(0,0,0,.65)":t.card,flexShrink:0}},
+        h('button',{onClick:()=>setPage("home"),style:{background:"none",border:"none",cursor:"pointer",padding:4}},
+          h(Ico,{n:"back",s:22,c:bgImg?"#fff":t.muted})),
+        h('div',{style:{flex:1}},
+          h('div',{style:{fontSize:14,fontWeight:600,color:bgImg?"#fff":t.text}},st?.title||"故事"),
+          scene&&h('div',{style:{fontSize:10,color:bgImg?"#ccc":t.muted}},"📍 "+scene)
+        ),
+        h('div',{style:{display:"flex",gap:4,background:bgImg?"rgba(0,0,0,.4)":t.surf,borderRadius:8,padding:3}},
+          [["novel","文"],["bubble","泡"],["script","本"]].map(([m,l])=>
+            h('button',{key:m,onClick:()=>setDispMode(m),
+              style:{width:26,height:22,borderRadius:6,background:dispMode===m?t.accent:"transparent",
+                border:"none",cursor:"pointer",fontSize:10,color:dispMode===m?"#fff":(bgImg?"#ccc":t.muted),fontWeight:600}},l))
+        ),
+        h('button',{onClick:()=>setShowSearch(p=>!p),style:{background:"none",border:"none",cursor:"pointer",padding:3}},h(Ico,{n:"search",s:17,c:bgImg?"#fff":t.muted})),
+        h('button',{onClick:addBookmark,style:{background:"none",border:"none",cursor:"pointer",padding:3}},h(Ico,{n:"bookmark",s:17,c:bgImg?"#fff":t.muted})),
+        h('button',{onClick:()=>setShowBM(p=>!p),style:{background:"none",border:"none",cursor:"pointer",padding:"3px 5px",fontSize:10,color:bgImg?"#fff":t.muted}},"存档")
+      ),
+      // search
+      showSearch&&h('div',{style:{padding:"8px 14px",background:t.surf,borderBottom:"1px solid "+t.border,flexShrink:0}},
+        h('input',{value:searchQ,onChange:e=>setSearchQ(e.target.value),placeholder:"搜索剧情内容…",
+          style:{width:"100%",background:t.card,border:"1px solid "+t.border,borderRadius:9,padding:"7px 11px",color:t.text,fontSize:12}}),
+        searchResults.length>0&&h('div',{style:{marginTop:7,maxHeight:100,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}},
+          searchResults.map(m=>h('div',{key:m.id,style:{fontSize:11,color:t.muted,padding:"5px 9px",background:t.card,borderRadius:7,border:"1px solid "+t.border}},
+            m.content.slice(0,80)+"…")))
+      ),
+      // bookmarks
+      showBM&&h('div',{style:{padding:"10px 14px",background:t.surf,borderBottom:"1px solid "+t.border,flexShrink:0}},
+        h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+          h('div',{style:{fontSize:12,color:t.muted}},"存档列表"),
+          h('button',{onClick:()=>setShowBM(false),style:{background:"none",border:"none",cursor:"pointer",fontSize:11,color:t.muted}},"关闭")
+        ),
+        (st?.bookmarks||[]).length===0?h('div',{style:{fontSize:12,color:t.muted}},"暂无存档"):
+        h('div',{style:{display:"flex",flexDirection:"column",gap:6,maxHeight:100,overflowY:"auto"}},
+          (st?.bookmarks||[]).map(bm=>h('div',{key:bm.id,style:{display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"7px 10px",background:t.card,borderRadius:8,border:"1px solid "+t.border}},
+            h('span',{style:{fontSize:11,color:t.text}},bm.label),
+            h('div',{style:{display:"flex",gap:5}},
+              h('button',{onClick:()=>{updStory(activeId,s=>({...s,msgs:[...bm.msgs]}));setBranches(null);setShowBM(false);},
+                style:{fontSize:11,padding:"3px 9px",borderRadius:6,background:t.accent+"22",color:t.accent,border:"none",cursor:"pointer"}},"读取"),
+              h('button',{onClick:()=>updStory(activeId,s=>({...s,bookmarks:(s.bookmarks||[]).filter(b=>b.id!==bm.id)})),
+                style:{fontSize:11,padding:"3px 7px",borderRadius:6,background:t.danger+"18",color:t.danger,border:"none",cursor:"pointer"}},"删")
+            )
+          ))
+        )
+      ),
+      // chat
+      h('div',{ref:chatRef,style:{flex:1,overflowY:"auto",padding:"14px",display:"flex",flexDirection:"column",
+        gap:dispMode==="bubble"?14:8,background:bgImg?"rgba(0,0,0,.45)":"transparent"}},
+        msgs.map((msg,idx)=>h('div',{key:msg.id,className:idx>msgs.length-4?"fade-in":""},
+          editMsgId===msg.id?
+          h('div',{style:{display:"flex",gap:8,alignItems:"flex-end"}},
+            h('textarea',{value:editTxt,onChange:e=>setEditTxt(e.target.value),rows:3,
+              style:{flex:1,background:t.surf,border:"1px solid "+t.accent,borderRadius:9,padding:"8px 11px",color:t.text,fontSize:13}}),
+            h('button',{onClick:()=>{updMsgs(activeId,p=>p.map(m=>m.id===msg.id?{...m,content:editTxt}:m));setEditMsgId(null);},
+              style:{background:t.green,border:"none",borderRadius:8,padding:"8px 11px",cursor:"pointer",color:"#fff",fontSize:12,fontFamily:"inherit"}},"保存"),
+            h('button',{onClick:()=>setEditMsgId(null),
+              style:{background:t.danger+"22",border:"none",borderRadius:8,padding:"8px 9px",cursor:"pointer",color:t.danger,fontSize:12,fontFamily:"inherit"}},"取消")
+          ):
+          h('div',{style:{position:"relative"},
+            onMouseEnter:e=>e.currentTarget.querySelector(".ebtn")?.style&&(e.currentTarget.querySelector(".ebtn").style.opacity=".6"),
+            onMouseLeave:e=>e.currentTarget.querySelector(".ebtn")?.style&&(e.currentTarget.querySelector(".ebtn").style.opacity="0")},
+            h(Msg,{msg,isFav:(st?.favs||[]).includes(msg.id),
+              onFav:()=>updStory(activeId,s=>({...s,favs:(s.favs||[]).includes(msg.id)?(s.favs||[]).filter(id=>id!==msg.id):[...(s.favs||[]),msg.id]}))}),
+            h('button',{className:"ebtn",onClick:()=>{setEditMsgId(msg.id);setEditTxt(msg.content);},
+              style:{position:"absolute",top:0,right:0,background:"none",border:"none",cursor:"pointer",opacity:0,padding:2,transition:"opacity .2s"}},
+              h(Ico,{n:"edit",s:11,c:t.muted}))
+          )
+        )),
+        generating&&h('div',{style:{display:"flex",gap:6,padding:"4px 8px",alignItems:"center"}},
+          [0,1,2].map(i=>h('div',{key:i,className:"dot",style:{width:8,height:8,borderRadius:"50%",background:t.accent,animationDelay:i*.2+"s"}}))
+        ),
+        branches&&!generating&&h('div',{className:"fade-in",style:{background:bgImg?"rgba(0,0,0,.6)":t.surf,borderRadius:14,padding:13,border:"1px solid "+t.border}},
+          h('div',{style:{fontSize:11,color:t.muted,marginBottom:9}},"✦ 选择剧情走向"),
+          h('div',{style:{display:"flex",flexDirection:"column",gap:7}},
+            branches.map((b,i)=>h('button',{key:i,onClick:()=>handleBranch(b),
+              style:{background:"transparent",border:"1px solid "+t.accent+"44",borderRadius:10,padding:"9px 13px",
+                textAlign:"left",cursor:"pointer",color:bgImg?"#fff":t.text,fontSize:13,
+                lineHeight:1.6,fontFamily:fontStack,transition:"all .2s"},
+              onMouseEnter:e=>{e.target.style.background=t.accent+"22";e.target.style.borderColor=t.accent;},
+              onMouseLeave:e=>{e.target.style.background="transparent";e.target.style.borderColor=t.accent+"44";}},
+              h('span',{style:{color:t.accent,fontWeight:700,marginRight:7}},["A","B","C"][i]),b
+            ))
+          )
+        )
+      ),
+      // action bar
+      h('div',{style:{padding:"8px 12px 10px",background:bgImg?"rgba(0,0,0,.7)":t.card,borderTop:"1px solid "+(bgImg?"rgba(255,255,255,.1)":t.border),flexShrink:0}},
+        h('div',{style:{display:"flex",gap:6,marginBottom:9,overflowX:"auto",paddingBottom:2}},
+          [
+            {n:"refresh",l:"重新生成",f:()=>generate("")},
+            {n:"undo",l:"悔棋",f:handleUndo},
+            {n:"dice",l:"随机",f:()=>generate("",true)},
+            {n:"bolt",l:"推进",f:()=>generate("请推进剧情，制造新冲突")},
+            {n:"map",l:"场景",f:()=>{const s=prompt("当前场景（如：酒馆、深山）");if(s!==null)setScene(s);}},
+            {n:"down",l:"导出",f:exportTxt},
+            {n:"star",l:"隐藏触发",f:()=>{
+              const kw=prompt("触发关键词（如：血月）");if(!kw)return;
+              const ev=prompt("触发后发生的事件");if(!ev)return;
+              updStory(activeId,s=>({...s,triggers:[...(s.triggers||[]),{keyword:kw,event:ev}]}));
+              alert("隐藏剧情已设置！当对话包含「"+kw+"」时触发。");
+            }},
+          ].map(a=>h('button',{key:a.l,onClick:a.f,
+            style:{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 10px",
+              background:"none",border:"1px solid "+(bgImg?"rgba(255,255,255,.2)":t.border),borderRadius:9,
+              cursor:"pointer",color:bgImg?"#ddd":t.muted,fontSize:10,flexShrink:0,transition:"all .2s"},
+            onMouseEnter:e=>{e.currentTarget.style.borderColor=t.accent;e.currentTarget.style.color=t.accent;},
+            onMouseLeave:e=>{e.currentTarget.style.borderColor=bgImg?"rgba(255,255,255,.2)":t.border;e.currentTarget.style.color=bgImg?"#ddd":t.muted;}},
+            h(Ico,{n:a.n,s:14,c:"currentColor"}),a.l
+          ))
+        ),
+        h('div',{style:{display:"flex",gap:8,alignItems:"flex-end"}},
+          h('textarea',{value:input,onChange:e=>setInput(e.target.value),placeholder:"输入你的行动或对话…",rows:2,
+            onKeyDown:e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleSend();}},
+            style:{flex:1,background:bgImg?"rgba(255,255,255,.1)":t.surf,border:"1px solid "+(bgImg?"rgba(255,255,255,.2)":t.border),
+              borderRadius:11,padding:"9px 12px",color:bgImg?"#fff":t.text,fontSize:fontSize,lineHeight:1.6,fontFamily:fontStack}}),
+          h('button',{onClick:handleSend,disabled:generating,
+            style:{width:42,height:42,borderRadius:11,background:generating?t.border:t.accent,border:"none",
+              cursor:generating?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+            h(Ico,{n:"send",s:16,c:"#fff"}))
+        )
+      )
+    );
+  }
+
+  // ── CHARS PAGE ────────────────────────────────────────────────────
+  function CharsPage(){
+    return h('div',{style:{padding:16}},
+      h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
+        h('div',{style:{fontSize:17,fontWeight:700,color:t.text}},"角色卡"),
+        h(Btn,{onClick:()=>openModal("char"),sz:"sm"},h('span',{style:{display:"flex",alignItems:"center",gap:4}},h(Ico,{n:"plus",s:13,c:"#fff"}),"创建"))
+      ),
+      h('div',{style:{display:"flex",flexDirection:"column",gap:10}},
+        chars.map(c=>{
+          const isSel=selCharIds.includes(c.id);
+          return h(Card,{key:c.id,border:isSel?c.color||t.accent:t.border},
+            h('div',{style:{display:"flex",gap:11,alignItems:"center",marginBottom:10}},
+              h(Ava,{src:c.avatar,name:c.name,size:48,color:c.color||t.accent}),
+              h('div',{style:{flex:1}},
+                h('div',{style:{display:"flex",alignItems:"center",gap:7,marginBottom:4}},
+                  h('span',{style:{fontSize:14,fontWeight:600,color:t.text}},c.name),
+                  h('span',{style:{fontSize:10,padding:"2px 7px",borderRadius:10,background:(c.color||t.accent)+"22",color:c.color||t.accent}},c.pov),
+                  h('span',{style:{fontSize:10,padding:"2px 7px",borderRadius:10,background:t.surf,color:t.muted}},c.pronoun)
+                ),
+                h('div',{style:{fontSize:11,color:t.muted,lineHeight:1.5}},c.setting.slice(0,55)+(c.setting.length>55?"...":""))
+              ),
+              h('div',{style:{display:"flex",gap:4}},
+                h('button',{onClick:()=>setRelModal(c),style:{background:"none",border:"none",cursor:"pointer",padding:4,fontSize:13}},t.text==="#1a1a1a"?"🔗":"🔗"),
+                h('button',{onClick:()=>openModal("char",c),style:{background:"none",border:"none",cursor:"pointer",padding:4}},h(Ico,{n:"edit",s:14,c:t.muted})),
+                h('button',{onClick:()=>setChars(p=>p.filter(x=>x.id!==c.id)),style:{background:"none",border:"none",cursor:"pointer",padding:4}},h(Ico,{n:"trash",s:14,c:t.danger}))
+              )
+            ),
+            (c.relations||[]).length>0&&h('div',{style:{marginBottom:8,display:"flex",gap:5,flexWrap:"wrap"}},
+              c.relations.map((r,i)=>h('span',{key:i,style:{fontSize:10,padding:"2px 8px",borderRadius:10,background:t.surf,color:t.muted,border:"1px solid "+t.border}},r))
+            ),
+            h('button',{onClick:()=>setSelCharIds(p=>p.includes(c.id)?p.filter(x=>x!==c.id):[...p,c.id]),
+              style:{fontSize:11,padding:"5px 12px",borderRadius:8,border:"1px solid "+(isSel?c.color||t.green:t.border),
+                background:isSel?(c.color||t.green)+"18":"transparent",color:isSel?c.color||t.green:t.muted,cursor:"pointer",fontFamily:"inherit"}},
+              isSel?"✓ 已加入剧情":"加入剧情"
+            )
+          );
+        })
+      )
+    );
+  }
+
+  // ── VESTS PAGE ────────────────────────────────────────────────────
+  function VestsPage(){
+    return h('div',{style:{padding:16}},
+      h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
+        h('div',{style:{fontSize:17,fontWeight:700,color:t.text}},"我的马甲"),
+        h(Btn,{onClick:()=>openModal("vest"),sz:"sm"},h('span',{style:{display:"flex",alignItems:"center",gap:4}},h(Ico,{n:"plus",s:13,c:"#fff"}),"创建"))
+      ),
+      h('div',{style:{display:"flex",flexDirection:"column",gap:10}},
+        vests.map(v=>{
+          const isCur=selVestId===v.id;
+          return h(Card,{key:v.id,border:isCur?t.green:t.border},
+            h('div',{style:{display:"flex",gap:11,alignItems:"center",marginBottom:10}},
+              h(Ava,{src:v.avatar,name:v.name,size:48,color:t.green}),
+              h('div',{style:{flex:1}},
+                h('div',{style:{display:"flex",alignItems:"center",gap:7,marginBottom:4}},
+                  h('span',{style:{fontSize:14,fontWeight:600,color:t.text}},v.name),
+                  h('span',{style:{fontSize:10,padding:"2px 7px",borderRadius:10,background:t.green+"22",color:t.green}},v.pov),
+                  isCur&&h('span',{style:{fontSize:10,color:t.green,fontWeight:600}},"使用中")
+                ),
+                h('div',{style:{fontSize:11,color:t.muted,lineHeight:1.5}},v.setting.slice(0,55)+(v.setting.length>55?"...":""))
+              ),
+              h('div',{style:{display:"flex",gap:4}},
+                h('button',{onClick:()=>openModal("vest",v),style:{background:"none",border:"none",cursor:"pointer",padding:4}},h(Ico,{n:"edit",s:14,c:t.muted})),
+                h('button',{onClick:()=>setVests(p=>p.filter(x=>x.id!==v.id)),style:{background:"none",border:"none",cursor:"pointer",padding:4}},h(Ico,{n:"trash",s:14,c:t.danger}))
+              )
+            ),
+            h('button',{onClick:()=>setSelVestId(v.id),
+              style:{fontSize:11,padding:"5px 12px",borderRadius:8,border:"1px solid "+(isCur?t.green:t.border),
+                background:isCur?t.green+"18":"transparent",color:isCur?t.green:t.muted,cursor:"pointer",fontFamily:"inherit"}},
+              isCur?"✓ 当前马甲":"切换为此马甲"
+            )
+          );
+        })
+      )
+    );
+  }
+
+  // ── WORLDS PAGE ───────────────────────────────────────────────────
+  function WorldsPage(){
+    return h('div',{style:{padding:16}},
+      h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+        h('div',{style:{fontSize:17,fontWeight:700,color:t.text}},"世界书"),
+        h(Btn,{onClick:()=>openModal("world"),sz:"sm"},h('span',{style:{display:"flex",alignItems:"center",gap:4}},h(Ico,{n:"plus",s:13,c:"#fff"}),"创建"))
+      ),
+      h('div',{style:{fontSize:11,color:t.muted,marginBottom:14}},"可同时挂载多个世界书叠加使用"),
+      h('div',{style:{display:"flex",flexDirection:"column",gap:10}},
+        worlds.map(w=>{
+          const isM=selWorldIds.includes(w.id);
+          return h(Card,{key:w.id,border:isM?t.accent:t.border},
+            h('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}},
+              h('div',null,
+                h('div',{style:{fontSize:14,fontWeight:600,color:t.text,marginBottom:5}},"📚 "+w.name),
+                h('div',{style:{display:"flex",gap:5,flexWrap:"wrap"}},
+                  (w.tags||[]).map(tag=>h('span',{key:tag,style:{fontSize:10,padding:"2px 7px",borderRadius:10,background:t.accent+"18",color:t.accentL}},tag)))
+              ),
+              h('div',{style:{display:"flex",gap:4}},
+                h('button',{onClick:()=>openModal("world",w),style:{background:"none",border:"none",cursor:"pointer",padding:4}},h(Ico,{n:"edit",s:14,c:t.muted})),
+                h('button',{onClick:()=>setWorlds(p=>p.filter(x=>x.id!==w.id)),style:{background:"none",border:"none",cursor:"pointer",padding:4}},h(Ico,{n:"trash",s:14,c:t.danger}))
+              )
+            ),
+            h('div',{style:{fontSize:12,color:t.muted,lineHeight:1.6,marginBottom:10}},w.prompt.slice(0,90)+(w.prompt.length>90?"...":"")),
+            h('button',{onClick:()=>setSelWorldIds(p=>p.includes(w.id)?p.filter(x=>x!==w.id):[...p,w.id]),
+              style:{fontSize:11,padding:"5px 12px",borderRadius:8,border:"1px solid "+(isM?t.accent:t.border),
+                background:isM?t.accent+"18":"transparent",color:isM?t.accent:t.muted,cursor:"pointer",fontFamily:"inherit"}},
+              isM?"✓ 已挂载":"挂载使用"
+            )
+          );
+        })
+      )
+    );
+  }
+
+  // ── SETTINGS PAGE ─────────────────────────────────────────────────
+  function SettingsPage(){
+    const bgRef=useRef();
+    const jsonRef=useRef();
+    return h('div',{style:{padding:16}},
+      h('div',{style:{fontSize:17,fontWeight:700,color:t.text,marginBottom:16}},"设置"),
+      h('div',{style:{display:"flex",flexDirection:"column",gap:12}},
+
+        // API
+        h(Card,null,
+          h('div',{style:{fontSize:13,fontWeight:600,color:t.text,marginBottom:14}},"🔑 API 配置"),
+          h(Fld,{label:"API 地址（支持中转）",value:apiBase,onChange:setApiBase,placeholder:"https://api.anthropic.com"}),
+          h(Fld,{label:"API Key",value:apiKey,onChange:setApiKey,placeholder:"sk-ant-api03-..."}),
+          h('div',{style:{marginBottom:13}},
+            h('div',{style:{fontSize:11,color:t.muted,marginBottom:7}},"模型"),
+            h('div',{style:{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}},
+              ["claude-sonnet-4-20250514","claude-opus-4-20250514","claude-haiku-4-5-20251001","gpt-4o","gpt-4o-mini"].map(m=>
+                h('button',{key:m,onClick:()=>setApiModel(m),
+                  style:{fontSize:10,padding:"4px 9px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
+                    background:apiModel===m?t.accent+"22":"transparent",
+                    border:"1px solid "+(apiModel===m?t.accent:t.border),
+                    color:apiModel===m?t.accent:t.muted}},
+                  m.split("-").slice(0,2).join("-"))
+              )
+            ),
+            modelList.length>0&&h('div',{style:{marginBottom:8}},
+              h('div',{style:{fontSize:11,color:t.muted,marginBottom:5}},"已拉取的模型"),
+              h('select',{value:apiModel,onChange:e=>setApiModel(e.target.value),
+                style:{width:"100%",background:t.surf,border:"1px solid "+t.border,borderRadius:9,padding:"8px 11px",color:t.text,fontSize:12,cursor:"pointer"}},
+                modelList.map(m=>h('option',{key:m,value:m},m)))
+            ),
+            h('div',{style:{display:"flex",gap:7,marginBottom:0}},
+              h('input',{value:apiModel,onChange:e=>setApiModel(e.target.value),placeholder:"手动输入模型名称",
+                style:{flex:1,background:t.surf,border:"1px solid "+t.border,borderRadius:9,padding:"8px 11px",color:t.text,fontSize:12}}),
+              h('button',{onClick:fetchModels,disabled:fetchingModels,
+                style:{padding:"8px 12px",borderRadius:9,border:"1px solid "+t.accent,background:t.accent+"18",
+                  color:t.accent,fontSize:11,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}},
+                fetchingModels?"拉取中…":"拉取模型")
+            )
+          ),
+          h(Slider,{label:"温度（创意度）",value:apiTemp,onChange:setApiTemp,min:0,max:2,step:0.1}),
+          h(Slider,{label:"最大 Token",value:apiTokens,onChange:setApiTokens,min:200,max:4000,step:100}),
+          h('div',{style:{fontSize:11,color:t.muted,marginTop:4}},"所有设置仅保存在本地浏览器")
+        ),
+
+        // theme
+        h(Card,null,
+          h('div',{style:{fontSize:13,fontWeight:600,color:t.text,marginBottom:13}},"🎨 主题皮肤"),
+          h('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}},
+            Object.keys(THEMES).map(s=>{
+              const th=THEMES[s];
+              return h('button',{key:s,onClick:()=>setSkin(s),
+                style:{padding:"12px 10px",borderRadius:11,border:"2px solid "+(skin===s?t.accent:t.border),
+                  background:th.bg,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6,transition:"all .2s",fontFamily:"inherit"}},
+                h('div',{style:{display:"flex",gap:4}},
+                  [th.accent,th.green,th.narr].map((c,i)=>h('div',{key:i,style:{width:10,height:10,borderRadius:"50%",background:c}}))
+                ),
+                h('span',{style:{fontSize:10,color:skin===s?th.accentL:th.muted,fontWeight:skin===s?700:400}},SKINNAMES[s])
+              );
+            })
+          )
+        ),
+
+        // background
+        h(Card,null,
+          h('div',{style:{fontSize:13,fontWeight:600,color:t.text,marginBottom:13}},"🖼️ 剧情背景图"),
+          h('div',{style:{display:"flex",gap:12,alignItems:"center"}},
+            h('div',{style:{width:56,height:56,borderRadius:9,overflow:"hidden",background:t.surf,border:"1px dashed "+t.border,
+              display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0},
+              onClick:()=>bgRef.current.click()},
+              bgImg?h('img',{src:bgImg,style:{width:"100%",height:"100%",objectFit:"cover"}}):h(Ico,{n:"img",s:20,c:t.muted})
+            ),
+            h('input',{ref:bgRef,type:"file",accept:"image/*",style:{display:"none"},
+              onChange:e=>{const f=e.target.files[0];if(f)fileToB64(f,url=>setBgImg(url));}}),
+            h('div',{style:{display:"flex",flexDirection:"column",gap:7}},
+              h('button',{onClick:()=>bgRef.current.click(),
+                style:{padding:"6px 13px",borderRadius:9,border:"1px solid "+t.border,background:"transparent",color:t.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}},
+                bgImg?"更换图片":"选择图片"),
+              bgImg&&h('button',{onClick:()=>setBgImg(""),
+                style:{padding:"6px 13px",borderRadius:9,border:"1px solid "+t.danger+"40",background:t.danger+"18",color:t.danger,fontSize:11,cursor:"pointer",fontFamily:"inherit"}},
+                "清除背景")
+            )
+          )
+        ),
+
+        // reading
+        h(Card,null,
+          h('div',{style:{fontSize:13,fontWeight:600,color:t.text,marginBottom:13}},"📖 阅读体验"),
+          h(Sel,{label:"字体风格",value:fontFace,onChange:setFontFace,options:[{v:"serif",l:"宋体（衬线）"},{v:"sans",l:"黑体（无衬线）"},{v:"handwriting",l:"楷体（手写）"}]}),
+          h(Slider,{label:"字号",value:fontSize,onChange:setFontSize,min:12,max:20}),
+          h(Toggle,{label:"打字机效果",value:typewriter,onChange:setTypewriter}),
+          h('div',{style:{height:1}})
+        ),
+
+        // data
+        h(Card,null,
+          h('div',{style:{fontSize:13,fontWeight:600,color:t.text,marginBottom:13}},"💾 数据管理"),
+          h('div',{style:{display:"flex",gap:9,flexWrap:"wrap"}},
+            h('button',{onClick:exportJSON,
+              style:{padding:"7px 14px",borderRadius:9,border:"1px solid "+t.border,background:"transparent",
+                color:t.muted,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontFamily:"inherit"}},
+              h(Ico,{n:"down",s:13,c:t.muted}),"导出备份"),
+            h('div',{style:{display:"inline-block"}},
+              h('input',{ref:jsonRef,type:"file",accept:".json",style:{display:"none"},
+                onChange:e=>{
+                  const f=e.target.files[0];if(!f)return;
+                  const r=new FileReader();
+                  r.onload=ev=>{try{const d=JSON.parse(ev.target.result);
+                    if(d.chars)setChars(d.chars);if(d.vests)setVests(d.vests);
+                    if(d.worlds)setWorlds(d.worlds);if(d.stories)setStories(d.stories);
+                    alert("导入成功！");}catch{alert("导入失败");}};
+                  r.readAsText(f);
+                }}),
+              h('button',{onClick:()=>jsonRef.current.click(),
+                style:{padding:"7px 14px",borderRadius:9,border:"1px solid "+t.border,background:"transparent",
+                  color:t.muted,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontFamily:"inherit"}},
+                h(Ico,{n:"up",s:13,c:t.muted}),"导入备份")
+            )
+          ),
+          h('div',{style:{fontSize:11,color:t.muted,marginTop:9}},"数据存储在浏览器本地，建议定期导出备份")
+        ),
+
+        // about
+        h(Card,null,
+          h('div',{style:{fontSize:13,fontWeight:600,color:t.text,marginBottom:8}},"🎋 关于竹林"),
+          h('div',{style:{fontSize:12,color:t.muted,lineHeight:2.0}},
+            "竹林 v5.0 · 完整版",h('br'),
+            "沉浸式AI互动小说创作工具",h('br'),
+            "数据自动保存至本地浏览器"
+          )
+        )
+      )
+    );
+  }
+
+  // ── NAV ───────────────────────────────────────────────────────────
+  const NAV=[
+    {id:"home",l:"主页",n:"home"},
+    {id:"story",l:"剧情",n:"book"},
+    {id:"characters",l:"角色卡",n:"user"},
+    {id:"vestments",l:"马甲",n:"mask"},
+    {id:"worldbooks",l:"世界书",n:"globe"},
+    {id:"settings",l:"设置",n:"settings"},
+  ];
+
+  const renderPage=()=>{
+    switch(page){
+      case"home":return h(HomePage);
+      case"story":return h(StoryPage);
+      case"characters":return h(CharsPage);
+      case"vestments":return h(VestsPage);
+      case"worldbooks":return h(WorldsPage);
+      case"settings":return h(SettingsPage);
+      default:return h(HomePage);
+    }
+  };
+
+  // ── MODALS ────────────────────────────────────────────────────────
+  const saveChar=()=>{
+    if(!editItem?.name)return;
+    if(editItem.id)setChars(p=>p.map(c=>c.id===editItem.id?editItem:c));
+    else setChars(p=>[...p,{...editItem,id:Date.now()}]);
+    closeModal();
+  };
+  const saveVest=()=>{
+    if(!editItem?.name)return;
+    if(editItem.id)setVests(p=>p.map(v=>v.id===editItem.id?editItem:v));
+    else setVests(p=>[...p,{...editItem,id:Date.now()}]);
+    closeModal();
+  };
+  const saveWorld=()=>{
+    if(!editItem?.name)return;
+    if(editItem.id)setWorlds(p=>p.map(w=>w.id===editItem.id?editItem:w));
+    else setWorlds(p=>[...p,{...editItem,id:Date.now(),tags:[]}]);
+    closeModal();
+  };
+  const saveStory=()=>{
+    if(!editItem?.title)return;
+    const ns={...editItem,id:Date.now(),turns:0,lastPlayed:"刚刚",msgs:[],bookmarks:[],favs:[]};
+    setStories(p=>[...p,ns]);setActiveId(ns.id);closeModal();setPage("story");
+  };
+
+  // ── ROOT ──────────────────────────────────────────────────────────
+  return h('div',{style:{background:t.bg,height:"100vh",display:"flex",flexDirection:"column",
+    maxWidth:480,margin:"0 auto",position:"relative",overflow:"hidden",
+    fontFamily:'"Microsoft YaHei","PingFang SC",sans-serif'}},
+    h('div',{style:{flex:1,overflowY:page==="story"?"hidden":"auto",display:"flex",flexDirection:"column",paddingBottom:62}},
+      renderPage()
+    ),
+    // bottom nav
+    h('div',{style:{position:"absolute",bottom:0,left:0,right:0,background:t.card,borderTop:"1px solid "+t.border,display:"flex",zIndex:50,paddingBottom:"env(safe-area-inset-bottom)"}},
+      NAV.map(n=>{
+        const active=page===n.id;
+        return h('button',{key:n.id,
+          onClick:()=>{if(n.id==="story"&&!activeId)return;setPage(n.id);},
+          style:{flex:1,padding:"9px 0 6px",background:"none",border:"none",cursor:"pointer",
+            display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+            opacity:n.id==="story"&&!activeId?0.5:1,transition:"all .15s"}},
+          h(Ico,{n:n.n,s:20,c:active?t.accent:t.muted}),
+          h('span',{style:{fontSize:9,color:active?t.accent:t.muted,fontWeight:active?600:400}},n.l),
+          active&&h('div',{style:{width:4,height:4,borderRadius:"50%",background:t.accent,marginTop:1}})
+        );
+      })
+    ),
+    // MODALS
+    modal==="char"&&editItem&&h(ModalWrap,{title:editItem.id?"编辑角色":"创建角色",onSave:saveChar},
+      h(AvaUpload),
+      h(Fld,{label:"角色名字",value:editItem.name,onChange:v=>setEditItem(p=>({...p,name:v})),placeholder:"输入角色名字"}),
+      h('div',{style:{marginBottom:13}},
+        h('div',{style:{fontSize:11,color:t.muted,marginBottom:7}},"角色颜色"),
+        h('div',{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+          CHARCOLORS.map(c=>h('button',{key:c,onClick:()=>setEditItem(p=>({...p,color:c})),
+            style:{width:26,height:26,borderRadius:"50%",background:c,border:"3px solid "+(editItem.color===c?"#fff":"transparent"),cursor:"pointer"}}))
+        )
+      ),
+      h(Sel,{label:"人称",value:editItem.pronoun,onChange:v=>setEditItem(p=>({...p,pronoun:v})),
+        options:[{v:"他",l:"他"},{v:"她",l:"她"},{v:"它",l:"它"},{v:"我",l:"我"},{v:"你",l:"你"},{v:"本王",l:"本王"},{v:"吾",l:"吾"},{v:"本座",l:"本座"}]}),
+      h(Sel,{label:"叙事视角",value:editItem.pov,onChange:v=>setEditItem(p=>({...p,pov:v})),
+        options:[{v:"第一人称",l:"第一人称（我）"},{v:"第二人称",l:"第二人称（你）"},{v:"第三人称",l:"第三人称（他/她）"}]}),
+      h(Fld,{label:"角色设定",value:editItem.setting,onChange:v=>setEditItem(p=>({...p,setting:v})),placeholder:"描述角色的外貌、性格、背景故事…",rows:4})
+    ),
+    modal==="vest"&&editItem&&h(ModalWrap,{title:editItem.id?"编辑马甲":"创建马甲",onSave:saveVest},
+      h(AvaUpload),
+      h(Fld,{label:"马甲名字",value:editItem.name,onChange:v=>setEditItem(p=>({...p,name:v})),placeholder:"你在剧情中的名字"}),
+      h(Sel,{label:"人称",value:editItem.pronoun,onChange:v=>setEditItem(p=>({...p,pronoun:v})),
+        options:[{v:"我",l:"我"},{v:"你",l:"你"},{v:"他",l:"他"},{v:"她",l:"她"},{v:"本王",l:"本王"},{v:"吾",l:"吾"}]}),
+      h(Sel,{label:"叙事视角",value:editItem.pov,onChange:v=>setEditItem(p=>({...p,pov:v})),
+        options:[{v:"第一人称",l:"第一人称（我）"},{v:"第二人称",l:"第二人称（你）"},{v:"第三人称",l:"第三人称（他/她）"}]}),
+      h(Fld,{label:"马甲设定",value:editItem.setting,onChange:v=>setEditItem(p=>({...p,setting:v})),placeholder:"描述你的这个身份…",rows:3})
+    ),
+    modal==="world"&&editItem&&h(ModalWrap,{title:editItem.id?"编辑世界书":"创建世界书",onSave:saveWorld},
+      h(Fld,{label:"世界书名称",value:editItem.name,onChange:v=>setEditItem(p=>({...p,name:v})),placeholder:"例如：仙侠大陆"}),
+      h(Fld,{label:"世界观设定（提示词）",value:editItem.prompt,onChange:v=>setEditItem(p=>({...p,prompt:v})),placeholder:"详细描述这个世界的规则、背景、特色…",rows:6})
+    ),
+    modal==="story"&&editItem&&h(ModalWrap,{title:"新建故事",onSave:saveStory},
+      h(Fld,{label:"故事标题",value:editItem.title||"",onChange:v=>setEditItem(p=>({...p,title:v})),placeholder:"给你的故事起个名字"}),
+      h(Fld,{label:"类型",value:editItem.genre||"",onChange:v=>setEditItem(p=>({...p,genre:v})),placeholder:"例如：古代奇幻、现代悬疑"})
+    ),
+    // relation modal
+    relModal&&h('div',{style:{position:"fixed",inset:0,background:t.ov,zIndex:200,display:"flex",alignItems:"flex-end"},onClick:()=>setRelModal(null)},
+      h('div',{onClick:e=>e.stopPropagation(),className:"slide-up",
+        style:{background:t.card,borderRadius:"20px 20px 0 0",padding:22,width:"100%",maxHeight:"60vh",overflowY:"auto",border:"1px solid "+t.border,borderBottom:"none"}},
+        h('div',{style:{fontSize:15,fontWeight:700,color:t.text,marginBottom:14}},"「"+relModal.name+"」的角色关系"),
+        h('div',{style:{display:"flex",flexDirection:"column",gap:7,marginBottom:14}},
+          (relModal.relations||[]).map((r,i)=>h('div',{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"8px 11px",background:t.surf,borderRadius:9,border:"1px solid "+t.border}},
+            h('span',{style:{fontSize:12,color:t.text}},r),
+            h('button',{onClick:()=>{
+              const u={...relModal,relations:relModal.relations.filter((_,j)=>j!==i)};
+              setChars(p=>p.map(c=>c.id===u.id?u:c));setRelModal(u);
+            },style:{background:"none",border:"none",cursor:"pointer"}},h(Ico,{n:"close",s:14,c:t.danger}))
+          ))
+        ),
+        h('div',{style:{display:"flex",gap:8,marginBottom:14}},
+          h('input',{id:"ri",placeholder:"如：与王福是宿敌关系",
+            style:{flex:1,background:t.surf,border:"1px solid "+t.border,borderRadius:9,padding:"9px 11px",color:t.text,fontSize:12}}),
+          h('button',{onClick:()=>{
+            const inp=document.getElementById("ri");if(!inp?.value.trim())return;
+            const u={...relModal,relations:[...(relModal.relations||[]),inp.value.trim()]};
+            setChars(p=>p.map(c=>c.id===u.id?u:c));setRelModal(u);inp.value="";
+          },style:{background:t.accent,border:"none",borderRadius:9,padding:"9px 14px",cursor:"pointer",color:"#fff",fontSize:12,fontFamily:"inherit"}},"添加")
+        ),
+        h('button',{onClick:()=>setRelModal(null),
+          style:{width:"100%",background:t.surf,border:"1px solid "+t.border,borderRadius:9,padding:"10px",cursor:"pointer",color:t.muted,fontSize:13,fontFamily:"inherit"}},"关闭")
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script>
+</body>
+</html>
