@@ -990,9 +990,13 @@ ${triggerPrompt}`;
   return h('div',{style:{background:t.bg,height:"100vh",display:"flex",flexDirection:"column",
     maxWidth:480,margin:"0 auto",position:"relative",overflow:"hidden",
     fontFamily:'"Microsoft YaHei","PingFang SC",sans-serif'}},
-    h('div',{style:{flex:1,overflowY:page==="story"?"hidden":"auto",display:"flex",flexDirection:"column",paddingBottom:62}},
-      renderPage()
-    ),
+    h('div',{style:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}},
+  h('div',{style:{display:tab==="推演"?"flex":"none",flex:1,flexDirection:"column",overflow:"hidden"}},TuiYan()),
+  h('div',{style:{display:tab==="马甲"?"flex":"none",flex:1,flexDirection:"column",overflow:"hidden"}},MaJia()),
+  h('div',{style:{display:tab==="世界观"?"flex":"none",flex:1,flexDirection:"column",overflow:"hidden"}},ShiJieGuan()),
+  h('div',{style:{display:tab==="设置"?"flex":"none",flex:1,flexDirection:"column",overflow:"hidden"}},SheZhi())
+)
+
     // bottom nav
     h('div',{style:{position:"absolute",bottom:0,left:0,right:0,background:t.card,borderTop:"1px solid "+t.border,display:"flex",zIndex:50,paddingBottom:"env(safe-area-inset-bottom)"}},
       NAV.map(n=>{
